@@ -1,0 +1,21 @@
+{
+  "name": "treevibe",
+  "version": "1.0.0",
+  "description": "TreeVibe Payment System with Real-time Earnings Tracking",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test-contracts.js",
+    "compile": "node compile.js"
+  },
+  "keywords": ["solidity", "defi", "earnings", "leaderboard"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "hardhat": "^3.0.6",
+    "solc-js": "^1.0.1"
+  },
+  "type": "module",
+  "dependencies": {
+    "solc": "^0.8.30"
+  }
+}
