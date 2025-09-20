@@ -1,1 +1,72 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
 
+interface TreeVibe {
+    function userOf(uint32 id) external view returns (
+        address account,
+        uint32 _id,
+        uint32 uplineId,
+        string memory nickname,
+        uint32 directs,
+        uint32 teamSize,
+        uint64 activeUntil,
+        uint256 weeklyEarnings,
+        uint256 totalEarnings
+    );
+}
+
+contract TreeVibeLeaderboard {
+    struct Row { uint32 id; string nick; uint256 val; }
+
+    function topByTotal(address tree, uint32[] calldata candidateIds)
+        external
+        view
+        returns (uint32[5] memory ids, string[5] memory nicks, uint256[5] memory values)
+    {
+        Row[5] memory top;
+        for (uint256 i = 0; i < candidateIds.length; i++) {
+            uint32 id = candidateIds[i];
+            if (id == 0) continue;
+            (, , , string memory nick, , , , , uint256 total) = ITreeVibe(tree).userOf(id);
+            if (total == 0) continue;
+            _push(top, id, nick, total);
+        }
+        for (uint256 j = 0; j < 5; j++) {
+            ids[j] = top[j].id;
+            nicks[j] = top[j].nick;
+            values[j] = top[j].val;
+        }
+    }
+
+    function topByWeekly(address tree, uint32[] calldata candidateIds)
+        external
+        view
+        returns (uint32[5] memory ids, string[5] memory nicks, uint256[5] memory values)
+    {
+        Row[5] memory top;
+        for (uint256 i = 0; i < candidateIds.length; i++) {
+            uint32 id = candidateIds[i];
+            if (id == 0) continue;
+            (, , , string memory nick, , , , uint256 weekly, ) = ITreeVibe(tree).userOf(id);
+            if (weekly == 0) continue;
+            _push(top, id, nick, weekly);
+        }
+        for (uint256 j = 0; j < 5; j++) {
+            ids[j] = top[j].id;
+            nicks[j] = top[j].nick;
+            values[j] = top[j].val;
+        }
+    }
+
+    function _push(Row[5] memory top, uint32 id, string memory nick, uint256 val) private pure {
+        uint256 pos = 5;
+        for (uint256 i = 0; i < 5; i++) {
+            if (val > top[i].val) { pos = i; break; }
+        }
+        if (pos == 5) return;
+        for (uint256 j = 4; j > pos; j--) {
+            top[j] = top[j - 1];
+        }
+        top[pos] = Row({ id: id, nick: nick, val: val });
+    }
+}
