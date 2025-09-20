@@ -85,10 +85,32 @@ contract TreeVibe is Ownable {
     event PioneerWin(address indexed winner, uint32 indexed groupIndex, uint256 amountEach);
     event TreasuryWalletUpdated(address indexed a);
 
-    constructor(address usdt_, address treasury_) Ownable() {
+    constructor(address usdt_, address treasury_, string memory rootNickname) Ownable() {
         require(usdt_ != address(0) && treasury_ != address(0), "ZERO");
         usdt = IERC20(usdt_);
         treasuryWallet = treasury_;
+        
+        // Validate and create root user
+        _validateNickname(rootNickname);
+        
+        // Create root user with ID 0
+        User storage rootUser = userOf[0];
+        rootUser.account = msg.sender;
+        rootUser.id = 0;
+        rootUser.uplineId = 0; // Root has no upline
+        rootUser.nickname = rootNickname;
+        rootUser.directs = 0;
+        rootUser.teamSize = 0;
+        rootUser.activeUntil = 0;
+        rootUser.totalEarnings = 0;
+        
+        // Update mappings - store (userID + 1) in nicknameOwnerId to handle root user (ID 0)
+        idOf[msg.sender] = 0;
+        bytes32 nicknameHash = keccak256(bytes(rootNickname));
+        nicknameOwnerId[nicknameHash] = 1; // Store (0 + 1) for root user
+        totalUsers = 1;
+        
+        emit Registered(msg.sender, 0, 0, rootNickname);
     }
 
     function setTreasuryWallet(address a) external onlyOwner { 
@@ -97,7 +119,27 @@ contract TreeVibe is Ownable {
         emit TreasuryWalletUpdated(a);
     }
 
-    function isRegistered(address a) public view returns (bool) { return idOf[a] != 0; }
+    function isRegistered(address a) public view returns (bool) { return idOf[a] != 0 || a == userOf[0].account; }
+
+    function _validateNickname(string memory nickname) internal view {
+        bytes memory nickBytes = bytes(nickname);
+        require(nickBytes.length >= 3 && nickBytes.length <= 20, "INVALID_NICKNAME_LENGTH");
+        
+        // Check for alphanumeric characters only
+        for (uint256 i = 0; i < nickBytes.length; i++) {
+            bytes1 char = nickBytes[i];
+            require(
+                (char >= 0x30 && char <= 0x39) || // 0-9
+                (char >= 0x41 && char <= 0x5A) || // A-Z
+                (char >= 0x61 && char <= 0x7A),   // a-z
+                "INVALID_NICKNAME_CHARS"
+            );
+        }
+        
+        // Check uniqueness - nicknameOwnerId stores (userID + 1) to handle root user (ID 0)
+        bytes32 nicknameHash = keccak256(nickBytes);
+        require(nicknameOwnerId[nicknameHash] == 0, "NICKNAME_TAKEN");
+    }
 
     function _distributeRegistration(uint32 newId, address account, uint32 uplineId) internal {
         uint256 left = REG_PRICE;
