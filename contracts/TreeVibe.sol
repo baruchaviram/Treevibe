@@ -147,13 +147,21 @@ contract TreeVibe is Ownable {
         uint32 cur = uplineId;
         for (uint8 level = 0; level < 8; level++) {
             uint256 share = (REG_PRICE * levelPerc[level]) / 10000;
-            if (cur != 0) {
+            // Check if current user exists and is valid
+            if (cur < totalUsers && userOf[cur].account != address(0)) {
                 address to = userOf[cur].account;
                 usdt.safeTransfer(to, share);
                 userOf[cur].totalEarnings += share;
                 emit Payout(to, share, bytes32(uint256(0x55504C494E455F00) | (uint256(level + 1))));
                 left -= share;
-                cur = userOf[cur].uplineId;
+                
+                // Move to next upline, but stop if we reach root user (has uplineId = 0 and id = 0)
+                uint32 nextUpline = userOf[cur].uplineId;
+                if (cur == 0) {
+                    // We're at root user, stop here since root has no upline
+                    break;
+                }
+                cur = nextUpline;
             } else {
                 break;
             }
