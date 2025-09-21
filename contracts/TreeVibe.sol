@@ -67,7 +67,7 @@ contract TreeVibe is Ownable {
         address account;
         uint32  id;
         uint32  uplineId;
-        string  nickname;
+        string  nickname;  // Stores original casing as chosen by user for display purposes
         uint32  directs;
         uint32  teamSize;
         uint64  activeUntil;
@@ -76,6 +76,9 @@ contract TreeVibe is Ownable {
 
     mapping(address => uint32) public idOf;
     mapping(uint32  => User)   public userOf;
+    // Case-insensitive nickname mapping: stores lowercase hash -> (userID + 1)
+    // This ensures that 'Alice', 'alice', 'ALICE' are all treated as the same nickname
+    // while preserving the original casing in the User struct for display purposes
     mapping(bytes32 => uint32) private nicknameOwnerId;
     uint32 public totalUsers;
 
@@ -105,9 +108,9 @@ contract TreeVibe is Ownable {
         rootUser.totalEarnings = 0;
         
         // Update mappings - store (userID + 1) in nicknameOwnerId to handle root user (ID 0)
+        // Use lowercase version for consistent case-insensitive comparison
         idOf[msg.sender] = 0;
-        bytes32 nicknameHash = keccak256(bytes(rootNickname));
-        nicknameOwnerId[nicknameHash] = 1; // Store (0 + 1) for root user
+        _registerNickname(rootNickname, 0);
         totalUsers = 1;
         
         emit Registered(msg.sender, 0, 0, rootNickname);
@@ -120,6 +123,28 @@ contract TreeVibe is Ownable {
     }
 
     function isRegistered(address a) public view returns (bool) { return idOf[a] != 0 || a == userOf[0].account; }
+
+    /**
+     * @dev Converts a string to lowercase for case-insensitive comparison
+     * @param input The input string to convert
+     * @return The lowercase version of the input string
+     */
+    function _toLowercase(string memory input) internal pure returns (string memory) {
+        bytes memory inputBytes = bytes(input);
+        bytes memory result = new bytes(inputBytes.length);
+        
+        for (uint256 i = 0; i < inputBytes.length; i++) {
+            bytes1 char = inputBytes[i];
+            // Convert uppercase A-Z (0x41-0x5A) to lowercase a-z (0x61-0x7A)
+            if (char >= 0x41 && char <= 0x5A) {
+                result[i] = bytes1(uint8(char) + 32);
+            } else {
+                result[i] = char;
+            }
+        }
+        
+        return string(result);
+    }
 
     function _validateNickname(string memory nickname) internal view {
         bytes memory nickBytes = bytes(nickname);
@@ -136,9 +161,24 @@ contract TreeVibe is Ownable {
             );
         }
         
-        // Check uniqueness - nicknameOwnerId stores (userID + 1) to handle root user (ID 0)
-        bytes32 nicknameHash = keccak256(nickBytes);
+        // Check uniqueness using case-insensitive comparison
+        // Convert nickname to lowercase for consistent hashing and comparison
+        string memory lowercaseNick = _toLowercase(nickname);
+        bytes32 nicknameHash = keccak256(bytes(lowercaseNick));
         require(nicknameOwnerId[nicknameHash] == 0, "NICKNAME_TAKEN");
+    }
+
+    /**
+     * @dev Internal helper to register a nickname in the mapping using case-insensitive key
+     * This function should be called when creating a new user to ensure consistent storage
+     * @param nickname The original nickname as chosen by the user (preserves original casing)
+     * @param userId The user ID to associate with this nickname (stored as userId + 1)
+     */
+    function _registerNickname(string memory nickname, uint32 userId) internal {
+        // Use lowercase version for the mapping key to ensure case-insensitive uniqueness
+        string memory lowercaseNick = _toLowercase(nickname);
+        bytes32 nicknameHash = keccak256(bytes(lowercaseNick));
+        nicknameOwnerId[nicknameHash] = userId + 1; // Store (userId + 1) to handle ID 0
     }
 
     function _distributeRegistration(uint32 newId, address account, uint32 uplineId) internal {
