@@ -247,4 +247,71 @@ contract TreeVibe is Ownable {
         uint32 offset = uint32(seed % span);
         return startId + offset;
     }
+
+    function _nextRandomId() internal returns (uint32) {
+        totalUsers++;
+        return totalUsers;
+    }
+
+    function _performRegistration(uint32 uplineId, string memory nickname) internal {
+        require(idOf[msg.sender] == 0, "ALREADY_REGISTERED");
+        require(bytes(nickname).length > 0, "EMPTY_NICKNAME");
+        
+        bytes32 nickHash = keccak256(bytes(nickname));
+        require(nicknameOwnerId[nickHash] == 0, "NICKNAME_TAKEN");
+        
+        if (uplineId > 0) {
+            require(userOf[uplineId].account != address(0), "UPLINE_NOT_EXISTS");
+        }
+        
+        // Transfer registration fee
+        usdt.safeTransferFrom(msg.sender, address(this), REG_PRICE);
+        
+        // Generate new ID
+        uint32 newId = _nextRandomId();
+        
+        // Create user record
+        User storage newUser = userOf[newId];
+        newUser.account = msg.sender;
+        newUser.id = newId;
+        newUser.uplineId = uplineId;
+        newUser.nickname = nickname;
+        newUser.directs = 0;
+        newUser.teamSize = 0;
+        newUser.activeUntil = 0;
+        newUser.totalEarnings = 0;
+        
+        // Update mappings
+        idOf[msg.sender] = newId;
+        nicknameOwnerId[nickHash] = newId;
+        
+        // Update upline stats
+        if (uplineId > 0) {
+            userOf[uplineId].directs++;
+            // Update team size for all uplines
+            uint32 cur = uplineId;
+            while (cur != 0) {
+                userOf[cur].teamSize++;
+                cur = userOf[cur].uplineId;
+            }
+        }
+        
+        // Distribute registration fees
+        _distributeRegistration(newId, msg.sender, uplineId);
+        
+        // Emit event
+        emit Registered(msg.sender, newId, uplineId, nickname);
+    }
+
+    function register(uint32 uplineId, string calldata nickname) external {
+        _performRegistration(uplineId, nickname);
+    }
+
+    function registerByUplineNick(string calldata uplineNick, string calldata nickname) external {
+        bytes32 uplineNickHash = keccak256(bytes(uplineNick));
+        uint32 uplineId = nicknameOwnerId[uplineNickHash];
+        require(uplineId > 0, "UPLINE_NICK_NOT_FOUND");
+        
+        _performRegistration(uplineId, nickname);
+    }
 }
