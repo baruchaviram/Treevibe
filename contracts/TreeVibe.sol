@@ -125,14 +125,39 @@ contract TreeVibe is Ownable {
                 (uint32 gIndex, uint32 startId, uint32 endId, uint32 count) = _currentPioneerWindow();
                 if (count > 0) {
                     uint256 each = toPioneer / PIONEER_WINNERS;
+                    
+                    // Track winners for this lottery round to prevent duplicate wins
+                    uint32[PIONEER_WINNERS] memory roundWinners;
+                    uint8 uniqueWinners = 0;
+                    
                     for (uint8 i = 0; i < PIONEER_WINNERS; i++) {
                         uint32 winnerId = _randomWinner(newId, account, i, startId, endId);
-                        address winner = userOf[winnerId].account;
-                        usdt.safeTransfer(winner, each);
-                        userOf[winnerId].totalEarnings += each;
-                        emit PioneerWin(winner, gIndex, each);
-                        emit Payout(winner, each, "PIONEER");
+                        
+                        // Check if this user has already won in this round
+                        bool alreadyWon = false;
+                        for (uint8 j = 0; j < uniqueWinners; j++) {
+                            if (roundWinners[j] == winnerId) {
+                                alreadyWon = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!alreadyWon) {
+                            // First time winning - award the prize to the user
+                            roundWinners[uniqueWinners] = winnerId;
+                            uniqueWinners++;
+                            
+                            address winner = userOf[winnerId].account;
+                            usdt.safeTransfer(winner, each);
+                            userOf[winnerId].totalEarnings += each;
+                            emit PioneerWin(winner, gIndex, each);
+                            emit Payout(winner, each, "PIONEER");
+                        } else {
+                            // User already won in this round - redirect to treasury
+                            toTreasury += each;
+                        }
                     }
+                    
                     uint256 distributed = each * PIONEER_WINNERS;
                     if (toPioneer > distributed) {
                         toTreasury += (toPioneer - distributed);
