@@ -54,14 +54,14 @@ contract TreeVibe is Ownable {
     address public treasuryWallet;
 
     uint256 public constant USDT_DECIMALS = 6;
-    uint256 public constant REG_PRICE = 100 * (10 ** USDT_DECIMALS);
-    uint256 public constant WEEKLY_PRICE = 9 * (10 ** USDT_DECIMALS);
+    uint256 public constant REG_PRICE = 100 * (10 ** USDT_DECIMALS); // Registration price: 100 USDT
+    uint256 public constant WEEKLY_PRICE = 9 * (10 ** USDT_DECIMALS); // Weekly subscription price: 9 USDT
 
-    uint16[8] public levelPerc = [uint16(1500), 1800, 1200, 1000, 1000, 1000, 1000, 1000]; // bps = 10000
-    uint16 public constant PIONEER_REST_BPS = 5000; // 50% of REST goes to pioneer lottery (the rest to treasury)
+    uint16[8] public levelPerc = [uint16(1500), 1800, 1200, 1000, 1000, 1000, 1000, 1000]; // Percentage per level in basis points (total = 10000)
+    uint16 public constant PIONEER_REST_BPS = 5000; // 50% of remaining funds allocated to pioneer lottery, rest goes to treasury
 
-    uint32 public constant PIONEER_GROUP_SIZE = 500;
-    uint8  public constant PIONEER_WINNERS = 5;
+    uint32 public constant PIONEER_GROUP_SIZE = 500; // Number of users per pioneer lottery group
+    uint8  public constant PIONEER_WINNERS = 5; // Number of winners per pioneer lottery
 
     struct User {
         address account;
